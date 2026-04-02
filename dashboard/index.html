@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenBackup Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    input, button { padding: 10px; margin: 4px 0; width: 100%; }
+    button { cursor: pointer; }
+    pre { background: #f7f7f7; padding: 12px; border-radius: 8px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>OpenBackup Federation Dashboard</h1>
+
+  <div class="card">
+    <h2>Login</h2>
+    <input id="api" value="http://localhost:8000" />
+    <input id="username" value="admin" />
+    <input id="password" type="password" value="admin123" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div class="card">
+    <h2>Upload backup</h2>
+    <input id="file" type="file" />
+    <button onclick="uploadBackup()">Upload</button>
+  </div>
+
+  <div class="card">
+    <h2>Register node</h2>
+    <input id="node_name" placeholder="Node name" />
+    <input id="node_url" placeholder="Base URL e.g. http://localhost:8000" />
+    <input id="node_region" value="EU" />
+    <button onclick="registerNode()">Register node</button>
+  </div>
+
+  <div class="card">
+    <h2>Backups</h2>
+    <button onclick="listBackups()">Refresh backups</button>
+    <pre id="backups"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Nodes</h2>
+    <button onclick="listNodes()">Refresh nodes</button>
+    <button onclick="syncNodes()">Federation sync</button>
+    <pre id="nodes"></pre>
+  </div>
+
+<script>
+let token = null;
+
+async function login() {
+  const api = document.getElementById('api').value;
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const form = new URLSearchParams();
+  form.append('username', username);
+  form.append('password', password);
+  const res = await fetch(`${api}/auth/token`, { method: 'POST', body: form });
+  const data = await res.json();
+  token = data.access_token;
+  alert('Logged in');
+}
+
+async function uploadBackup() {
+  const api = document.getElementById('api').value;
+  const fileInput = document.getElementById('file');
+  if (!fileInput.files.length) return alert('Select a file');
+  const form = new FormData();
+  form.append('file', fileInput.files[0]);
+  const res = await fetch(`${api}/backups/upload`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: form
+  });
+  const data = await res.json();
+  alert(`Uploaded: ${data.filename}`);
+}
+
+async function registerNode() {
+  const api = document.getElementById('api').value;
+  const payload = {
+    name: document.getElementById('node_name').value,
+    base_url: document.getElementById('node_url').value,
+    region: document.getElementById('node_region').value,
+    description: 'Dashboard registered node'
+  };
+  const res = await fetch(`${api}/nodes/register`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  document.getElementById('nodes').textContent = JSON.stringify(data, null, 2);
+}
+
+async function listBackups() {
+  const api = document.getElementById('api').value;
+  const res = await fetch(`${api}/backups`, { headers: { 'Authorization': `Bearer ${token}` } });
+  const data = await res.json();
+  document.getElementById('backups').textContent = JSON.stringify(data, null, 2);
+}
+
+async function listNodes() {
+  const api = document.getElementById('api').value;
+  const res = await fetch(`${api}/nodes`, { headers: { 'Authorization': `Bearer ${token}` } });
+  const data = await res.json();
+  document.getElementById('nodes').textContent = JSON.stringify(data, null, 2);
+}
+
+async function syncNodes() {
+  const api = document.getElementById('api').value;
+  const res = await fetch(`${api}/federation/sync`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+  const data = await res.json();
+  document.getElementById('nodes').textContent = JSON.stringify(data, null, 2);
+}
+</script>
+</body>
+</html>
